@@ -55,12 +55,12 @@ POST /api/v1/webhooks/pagarme
     {
       "product_type": "PMS",
       "product_id": 1,
-      "amount_cents": 20000
+      "amount": 20000
     },
     {
       "product_type": "Motor",
       "product_id": 2,
-      "amount_cents": 5000
+      "amount": 5000
     }
   ],
   "billing_type": "recurring",
@@ -90,8 +90,8 @@ class Charge < ApplicationRecord
   enum billing_type: { one_time: 0, recurring: 1 }
   enum status: { pending: 0, paid: 1, failed: 2 }
 
-  def total_amount_cents
-    charge_items.sum(:amount_cents)
+  def total_amount
+    charge_items.sum(:amount)
   end
 end
 ```
@@ -164,8 +164,8 @@ Customer.create(name: "Hotel Bela Vista", legacy_provider: :asaas)
 Permitido via `ChargeItem`, que aceita múltiplos produtos polimórficos:
 
 ```ruby
-charge.charge_items << ChargeItem.new(product: pms, amount_cents: 10000)
-charge.charge_items << ChargeItem.new(product: channel, amount_cents: 5000)
+charge.charge_items << ChargeItem.new(product: pms, amount: 10000)
+charge.charge_items << ChargeItem.new(product: channel, amount: 5000)
 ```
 
 ### Versionamento de API
