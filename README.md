@@ -118,17 +118,71 @@ end
 ## 📼 Integração com Pagar.me (simulação)
 
 ```ruby
+
+# Para efeito de simplificação e visando a solução técnica, segue
+# abaixo um pequeno esboço para exemplificar como ficaria o código
+# que transaciona uma cobrança usando o gateway Pagar.me
+
+# app/controllers/Pagarme#create
+def create
+  charge = Charge.find(params[:id])
+  gateway = PagarmeGateway.new(api_key: ENV['PAGARME_API_KEY'])
+  result = gateway.create_charge(charge)
+
+  charge.update!(
+    external_id: result[:pagarme_id],
+    status: result[:status]
+  )
+
+  render json: charge, status: :ok
+end
+
+# app/services/pagarme_gateway.rb
 class PagarmeGateway
   def initialize(api_key:)
     @api_key = api_key
+    PagarMe.api_key = api_key
   end
 
   def create_charge(charge)
-    puts "POST /transactions with charge #{charge.id}"
+    transaction = PagarMe::Transaction.new(
+      amount: charge.total_amount_cents,
+      payment_method: 'credit_card', # boleto
+      customer: {
+        external_id: charge.customer.id.to_s,
+        name: charge.customer.name,
+        type: 'individual',
+        country: 'br',
+        email: charge.customer.email,
+        documents: [
+          {
+            type: 'cpf',
+            number: charge.customer.cpf
+          }
+        ],
+        phone_numbers: ["+55#{charge.customer.phone}"]
+      },
+      metadata: {
+        charge_id: charge.id,
+        items: charge.charge_items.map do |item|
+          {
+            product_type: item.product_type,
+            product_id: item.product_id,
+            amount: item.amount
+          }
+        end
+      }
+    )
+
+    transaction.charge
+
     {
-      pagarme_id: "pgm_123",
-      status: "waiting_payment"
+      pagarme_id: transaction.id,
+      status: transaction.status
     }
+  rescue PagarMe::PagarMeError => e
+    Rails.logger.error("Pagar.me error: #{e.message}")
+    raise
   end
 end
 ```
